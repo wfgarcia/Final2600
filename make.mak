@@ -1,3 +1,8 @@
-CC - gcc 
-gcc TicTacToe.c -o TicTacToe
+CC = gcc 
+
+final: final.c
+$(CC) -o final final.c 
+
+
+
 
