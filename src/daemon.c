@@ -1,35 +1,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
-#include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
-void checkStart()
-{
-    while (1) {
-        // Check if the ESP32 has set the "START_GAME" environment variable
-        char* start_game = getenv("START");
-        if (start_game != NULL) {
-            // Start the game
-            system("./final");
-
-            // Clear the "START_GAME" variable
-            setenv("START", "", 1);
-        } else {
-            // Wait a few seconds before checking again
-            sleep(60);
-        }
+int main(int argc, char **argv) {
+    // Fork the process and exit the parent process
+    pid_t pid = fork();
+    if (pid > 0) {
+        exit(0);
     }
-}
 
-int main()
-{
-    // Ignore signals that would cause the daemon to terminate
-    signal(SIGINT, SIG_IGN);
-    signal(SIGTERM, SIG_IGN);
+    // Create a server socket
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Error creating socket");
+        exit(1);
+    }
 
-    // Run the daemon
-    checkStart();
+    // Bind the socket to port 8080
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(8080);
+    if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Error binding socket");
+        exit(1);
+    }
+
+    // Listen for incoming connections
+    listen(sockfd, 5);
+
+    // Accept incoming connections and print out any data received
+    while (1) {
+        int clientfd = accept(sockfd, NULL, NULL);
+        if (clientfd < 0) {
+            perror("Error accepting connection");
+            continue;
+        }
+
+        char buffer[256];
+        int n = read(clientfd, buffer, 255);
+        if (n < 0) {
+            perror("Error reading from socket");
+            close(clientfd);
+            continue;
+        }
+
+        printf("Received: %s\n", buffer);
+        close(clientfd);
+    }
 
     return 0;
 }
